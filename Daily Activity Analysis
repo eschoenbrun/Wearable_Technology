@@ -1,0 +1,92 @@
+/* Import data that has frequencies of usage statistics */
+
+PROC IMPORT OUT= WORK.FITBIT_Frequency
+	DATAFILE= "C:\Users\Stevens\Desktop\SAS\FITBIT_Frequency.csv" 
+    DBMS=csv REPLACE;
+    GETNAMES=YES;
+    DATAROW=2;
+	guessingrows=4019; 
+RUN;
+
+/* Aggregating and Averaging by User and Days of Week*/
+
+proc sql;
+create table FITBIT_Freq_Avg as
+select
+        Name, Day_of_Week,
+        avg(Calories_Burned) as Calories_Burned_Avg,
+        avg(Steps) as Steps_Avg,
+        avg(Distance) as Distance_Avg,
+        avg(Floors)as Floors_Avg,
+        avg(Minutes_Sedentary)as Minutes_Sedentary_Avg,
+        avg(Minutes_Lightly_Active) as Minutes_Lightly_Active_Avg,
+        avg(Minutes_Fairly_Active) as Minutes_Fairly_Active_Avg,
+        avg(Minutes_Very_Active) as Minutes_Very_Active_Avg,
+        avg(Activity_Calories) as Activity_Calories_Avg
+        from FITBIT_Frequency
+group by Name, Day_of_Week;
+quit;
+
+/* Replacing all Zero Values with Nulls */
+
+data FITBIT_Freq_Nulls;
+	set FITBIT_Freq_Avg;
+	if Floors_Avg=0 then Floors_Avg='';
+	if Minutes_Lightly_Active_Avg=0 then Minutes_Lightly_Active_Avg='';
+	if Minutes_Fairly_Active_Avg=0 then Minutes_Fairly_Active_Avg='';
+	if Minutes_Very_Active_Avg=0 then Minutes_Very_Active_Avg='';
+run;
+
+/* Creating Dummy Variables for Days of Week */ 
+
+data FITBIT_Weekdays;
+	set FITBIT_Freq_Nulls;
+	if day_of_week=1 then Sunday=1;
+		else Sunday=0;
+	if day_of_week=2 then Monday=1;
+		else Monday=0;
+	if day_of_week=3 then Tuesday=1;
+		else Tuesday=0;
+	if day_of_week=4 then Wednesday=1;
+		else Wednesday=0;
+	if day_of_week=5 then Thursday=1;
+		else Thursday=0;
+	if day_of_week=6 then Friday=1;
+		else Friday=0;
+	if day_of_week=7 then Saturday=1;
+		else Saturday=0;
+
+run;
+
+/* Histogram of Day of Week and Calories Burned */
+ 
+proc sgplot data=FITBIT_Weekdays;
+title "Days of Week vs Calories";
+  yaxis label="Calories Burned" ;
+  xaxis label="Days of Week" ;
+  vbar Day_of_Week / response=Calories_Burned_Avg;
+ 
+run;
+
+/* Histogram of Day of Week and Intense Activity */
+
+proc sgplot data=FITBIT_Weekdays;
+title "Days of Week vs Calories";
+  yaxis label="Minutes Very Active" ;
+  xaxis label="Days of Week" ;
+  vbar Day_of_Week / response=Minutes_Very_Active_Avg;
+ 
+run;
+
+/* Regression to predict calories burned by day of week */
+
+Title1 "Proc Reg to predict calorie burned";
+Title2 "Regression Analysis " ;
+proc reg data=FITBIT_Weekdays outest=est_FITBIT_Weekdays;
+	model Activity_Calories_Avg= Sunday Monday Tuesday Wednesday Thursday Friday
+		/ dwProb rsquare partial noint details; 
+	OUTPUT OUT = reg_fitbitOUT PREDICTED=PRCDT RESIDUAL=c_Res
+	h=lev cookd=Cookd dffits=dffit ;
+
+run;
+quit;
