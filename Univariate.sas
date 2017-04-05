@@ -1,0 +1,55 @@
+/* Import data that has frequencies of usage statistics */
+
+PROC IMPORT OUT= WORK.FITBIT_Frequency
+	DATAFILE= "C:\Users\Stevens\Desktop\SAS\FITBIT_Frequency.csv" 
+    DBMS=csv REPLACE;
+    GETNAMES=YES;
+    DATAROW=2; 
+	guessingrows=4019;
+RUN;
+
+/* Aggregating and Averaging by User and Weekends*/
+
+proc sql;
+create table FITBIT_Weekend_Avg as
+select
+        Name, Weekday,
+        avg(Calories_Burned) as Calories_Burned_Avg,
+        avg(Steps) as Steps_Avg,
+        avg(Distance) as Distance_Avg,
+        avg(Floors)as Floors_Avg,
+        avg(Minutes_Sedentary)as Minutes_Sedentary_Avg,
+        avg(Minutes_Lightly_Active) as Minutes_Lightly_Active_Avg,
+        avg(Minutes_Fairly_Active) as Minutes_Fairly_Active_Avg,
+        avg(Minutes_Very_Active) as Minutes_Very_Active_Avg,
+        avg(Activity_Calories) as Activity_Calories_Avg
+        from FITBIT_Frequency
+group by Name, Weekday;
+quit; 
+
+/* Replacing all Zero Values with Nulls */
+
+data FITBIT_Weekend_Nulls;
+	set FITBIT_Weekend_Avg;
+	if Floors_Avg=0 then Floors_Avg='';
+	if Minutes_Lightly_Active_Avg=0 then Minutes_Lightly_Active_Avg='';
+	if Minutes_Fairly_Active_Avg=0 then Minutes_Fairly_Active_Avg='';
+	if Minutes_Very_Active_Avg=0 then Minutes_Very_Active_Avg='';
+run;
+
+/* Univariate Analysis */
+
+title "Univariate Analysis";
+
+proc univariate data=FITBIT_Weekend_Nulls  normaltest plot ;
+   var  Calories_Burned_Avg Steps_Avg Distance_Avg Floors_Avg Minutes_Sedentary_Avg Minutes_Lightly_Active_Avg Minutes_Fairly_Active_Avg Minutes_Very_Active_Avg ;
+   probplot Calories_Burned_Avg / normal (mu=est sigma=est);
+   probplot Steps_Avg / normal (mu=est sigma=est);  
+   probplot Distance_Avg / normal (mu=est sigma=est);
+   probplot Floors_Avg / normal (mu=est sigma=est);
+   probplot Minutes_Sedentary_Avg / normal (mu=est sigma=est);  
+   probplot Minutes_Lightly_Active_Avg / normal (mu=est sigma=est); 
+   probplot Minutes_Fairly_Active_Avg / normal (mu=est sigma=est); 
+   probplot Minutes_Very_Active_Avg / normal (mu=est sigma=est); 
+ 
+run;
